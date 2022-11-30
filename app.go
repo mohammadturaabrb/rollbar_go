@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/rollbar/rollbar-go"
 )
@@ -18,12 +17,5 @@ func main() {
 	http.ListenAndServe(":3000", nil)
 	rollbar.SetToken("db0eeaf619584284873f3ba1fbc012e1")
 	rollbar.SetEnvironment("production")
-
-	rollbar.Info("Message body goes here")
-	rollbar.WrapAndWait(doSomething)
-}
-
-func doSomething() {
-	var timer *time.Timer = nil
-	timer.Reset(10) // this will panic
+	rollbar.SetServerRoot("/")
 }
