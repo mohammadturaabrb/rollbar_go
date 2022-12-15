@@ -2,23 +2,15 @@ package main
 
 import (
 	// "fmt"
+	"encoding/json"
+	"errors"
 	"html/template"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/rollbar/rollbar-go"
 	"github.com/gorilla/mux"
+	"github.com/rollbar/rollbar-go"
 )
-
-// func homeHandler(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-// 	fmt.Fprint(w, "<h1> Welcome to my webiste </h1>")
-// }
-
-// func contactHandler(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-// 	fmt.Fprint(w, "<h1> Contact Page </h1> <p>To get in touch, email me at <a href=\"mailto:support@rollbar.com\">support@rollbar.com</a>.</p>")
-// }
 
 func main() {
 	// http.HandleFunc("/", homeHandler)
@@ -27,56 +19,139 @@ func main() {
 	http.HandleFunc("/feeling", feelingHandler)
 	http.ListenAndServe(":3000", nil)
 
-	router := mux.NewRouter()
-	router := ("/signup", signup).Methods("POST")
-
+	r := mux.NewRouter()
+	r.HandleFunc("/signup", SignupHandler).Methods("POST")
+	r.HandleFunc("/login", LoginHandler).Methods("POST")
 
 	rollbar.SetToken("db0eeaf619584284873f3ba1fbc012e1")
 	rollbar.SetEnvironment("production")
+	rollbar.SetServerRoot()
+	rollbar.Error(rollbar.ERR)
 }
 
-func signup(w http.ResponseWriter, r *http.Request) {
-	// Get the signup data from the request body
+// SignupHandler is a handler for handling signup requests
+func SignupHandler(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body to get the signup data
 	decoder := json.NewDecoder(r.Body)
-	var userData UserData
-	err := decoder.Decode(&userData)
+	var data SignupData
+	err := decoder.Decode(&data)
 	if err != nil {
-	  // Return an error response if the signup data is invalid
-	  return
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
-  
+
 	// Validate the signup data
-	if userData.Username == "" || userData.Password == "" {
-	  // Return an error response if the signup data is invalid
-	  return
+	if data.Username == "" || data.Password == "" || data.Email == "" {
+		rollbar.Error(rollbar.ERR, errors.New("Missing username, password, or email"))
+		http.Error(w, "Missing username, password, or email", http.StatusBadRequest)
+		return
 	}
-  
-	// Hash the password for security
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userData.Password), bcrypt.DefaultCost)
+
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
 	if err != nil {
-	  // Return an error response if there is a problem with the password
-	  return
+		rollbar.Error(rollbar.ERR, errors.New("Error hashing password"))
+		http.Error(w, "Error hashing password", http.StatusInternalServerError)
+		return
 	}
-  
-	// Store the signup data in a database
-	db, err := sql.Open("mysql", "user:password@/database")
-	if err != nil {
-	  // Return an error response if there is a problem with the database
-	  return
+
+	// Save the user to the database
+	user := User{
+		Username: data.Username,
+		Password: string(hashedPassword),
+		Email:    data.Email,
 	}
-	defer db.Close()
-  
-	stmt, err := db.Prepare("INSERT INTO users(username, password) VALUES(?, ?)")
+	err = user.Save()
 	if err != nil {
-	  // Return an error response if there is a problem with the database
-	  return
+		rollbar.Error(rollbar.ERR, errors.New("Error saving user to database"))
+		http.Error(w, "Error saving user to database", http.StatusInternalServerError)
+		return
 	}
-	defer stmt.Close()
-  
-	_, err = stmt.Exec(userData.Username, hashedPassword)
+
+	// Create a JSON response with the user data
+	userData := struct {
+		ID       int    `json:"id"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+	}
+	jsonResponse, err := json.Marshal(userData)
 	if err != nil {
-	  // Return an error response if there is a problem with the database
-  
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Error marshalling user data", http.StatusInternalServerError)
+		return
+	}
+
+	// Send the response
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonResponse)
+}
+
+// LoginHandler is a handler for handling login requests
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body to get the login data
+	decoder := json.NewDecoder(r.Body)
+	var data LoginData
+	err := decoder.Decode(&data)
+	if err != nil {
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the login data
+	if data.Username == "" || data.Password == "" {
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Missing username or password", http.StatusBadRequest)
+		return
+	}
+
+	// Get the user from the database
+	user, err := User.GetByUsername(data.Username)
+	if err != nil {
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Error getting user from database", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if the password is correct
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.Password))
+	if err != nil {
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		return
+	}
+
+	// Create a JSON response with the user data
+	userData := struct {
+		ID       int    `json:"id"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+	}
+	jsonResponse, err := json.Marshal(userData)
+	if err != nil {
+		rollbar.Error(rollbar.ERR, err)
+		http.Error(w, "Error marshalling user data", http.StatusInternalServerError)
+		return
+	}
+
+	// Send the response
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonResponse)
+}
+
 type Feeling struct {
 	Name        string
 	Description string
@@ -111,14 +186,12 @@ var feelings []Feeling = []Feeling{
 	},
 }
 
-
-
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// parse the HTML template
 	t, err := template.ParseFiles("index.html")
 	if err != nil {
 		rollbar.Error(rollbar.ERR, err)
-		
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -127,7 +200,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	err = t.Execute(w, nil)
 	if err != nil {
 		rollbar.Error(rollbar.ERR, err)
-		
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
