@@ -8,6 +8,7 @@ require (
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/heroku/x v0.0.55
 	github.com/joho/godotenv v1.4.0
+	github.com/pkg/errors v0.9.1
 	github.com/rollbar/rollbar-go v1.2.0
 	go.mongodb.org/mongo-driver v1.11.1
 	golang.org/x/crypto v0.4.0
@@ -27,7 +28,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect

@@ -1,30 +1,35 @@
 package controllers
 
 import (
-    "context"
-    "fmt"
-    "log"
+	"context"
+	"fmt"
+	"log"
+	"runtime"
 
-    "net/http"
-    "time"
+	"net/http"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    "github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 
-    "rollbar_go/database"
+	"rollbar_go/database"
 
-    helper "rollbar_go/helpers"
-    "rollbar_go/models"
+	helper "rollbar_go/helpers"
+	"rollbar_go/models"
 
-    "go.mongodb.org/mongo-driver/bson"
-    "go.mongodb.org/mongo-driver/bson/primitive"
-    "go.mongodb.org/mongo-driver/mongo"
-    "golang.org/x/crypto/bcrypt"
 	"github.com/rollbar/rollbar-go"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 var validate = validator.New()
+
+type Stacker interface {
+	Stack() []runtime.Frame
+}
 
 //HashPassword is used to encrypt the password before it is stored in the DB
 func HashPassword(password string) string {
@@ -45,7 +50,7 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 
     if err != nil {
         msg = fmt.Sprintf("login or passowrd is incorrect")
-		rollbar.Error(err)
+		rollbar.Error(err, "login or passowrd is incorrect", runtime.Callers)
         check = false
     }
 
@@ -137,8 +142,8 @@ func Login() gin.HandlerFunc {
         defer cancel()
         if err != nil {
 			
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "login or passowrd is incorrect"})
-			rollbar.Error(http.StatusInternalServerError, "error", "login or passowrd is incorrect")
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "login or password is incorrect"})
+			rollbar.Error(http.StatusInternalServerError, "error", "login or password is incorrect")
             return
         }
 

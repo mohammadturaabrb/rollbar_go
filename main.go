@@ -16,7 +16,8 @@ func main() {
 	rollbar.SetToken("db0eeaf619584284873f3ba1fbc012e1")
 	rollbar.SetEnvironment("production")
 	rollbar.SetServerRoot("https://github.com/mohammadturaabrb/rollbar_go")
-	
+	rollbar.SetCodeVersion("1.0.0")
+
     port := os.Getenv("PORT")
 
     if port == "" {
