@@ -18,7 +18,7 @@ func DBinstance() *mongo.Client {
     err := godotenv.Load(".env")
 
     if err != nil {
-        rollbar.Error(err)
+        rollbar.Error(err, "Error loading .env file")
         log.Fatal("Error loading .env file")
     }
 
