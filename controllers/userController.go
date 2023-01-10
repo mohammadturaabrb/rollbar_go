@@ -129,7 +129,7 @@ func Login() gin.HandlerFunc {
 
         if err := c.BindJSON(&user); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			rollbar.Error(http.StatusBadRequest, "error": err.Error())
+			rollbar.Error(http.StatusBadRequest, "error", err.Error())
             return
         }
 
@@ -138,7 +138,7 @@ func Login() gin.HandlerFunc {
         if err != nil {
 			
             c.JSON(http.StatusInternalServerError, gin.H{"error": "login or passowrd is incorrect"})
-			rollbar.Error(http.StatusInternalServerError, "error": "login or passowrd is incorrect")
+			rollbar.Error(http.StatusInternalServerError, "error", "login or passowrd is incorrect")
             return
         }
 
@@ -146,7 +146,7 @@ func Login() gin.HandlerFunc {
         defer cancel()
         if passwordIsValid != true {
             c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			rollbar.Error(http.StatusInternalServerError, "error": msg)
+			rollbar.Error(http.StatusInternalServerError, "error", msg)
             return
         }
 
