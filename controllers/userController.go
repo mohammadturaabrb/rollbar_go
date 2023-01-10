@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime"
+	"errors"
 
 	"net/http"
 	"time"
@@ -27,10 +27,6 @@ import (
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
 var validate = validator.New()
 
-type Stacker interface {
-	Stack() []runtime.Frame
-}
-
 //HashPassword is used to encrypt the password before it is stored in the DB
 func HashPassword(password string) string {
     bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
@@ -50,7 +46,7 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 
     if err != nil {
         msg = fmt.Sprintf("login or passowrd is incorrect")
-		rollbar.Error(err, "login or passowrd is incorrect", runtime.Callers)
+		rollbar.Error(err, "login or passowrd is incorrect")
         check = false
     }
 
